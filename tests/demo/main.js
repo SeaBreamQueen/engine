@@ -519,10 +519,10 @@ console.log(path);
 
 for (let i = 0; i < path.length - 1; i++) {
     if (path[i][0] == path[i + 1][0]) {
-        stage.addActor(new PathLine({ x: (path[i][0] + 1) * 50 - 25, y: (path[i][1] + 1) * 50 - 25, width: 3, height: 50 }));
+        stage.addActor(new PathLine({ x: (path[i][1] + 1) * 50 - 25, y: (path[i][0] + 1) * 50 - 25, width: 50, height: 3 }));
     }
     else if (path[i][1] == path[i + 1][1]) {
-        stage.addActor(new PathLine({ x: (path[i][0] + 1) * 50 - 25, y: (path[i][1] + 1) * 50 - 25, width: 50, height: 3 }));
+        stage.addActor(new PathLine({ x: (path[i][1] + 1) * 50 - 25, y: (path[i][0] + 1) * 50 - 25, width: 3, height: 50 }));
     }
 }
 
