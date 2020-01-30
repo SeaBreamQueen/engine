@@ -29,7 +29,7 @@ class Tower extends Actor {
         this.aimAngle = 0.0
     }
 
-    render = () => {
+    render = (dt) => {
         this.ctx.fillStyle = "white";
         this.ctx.font = "20px Arial";
         this.ctx.textAlign = "center";
@@ -82,7 +82,7 @@ class Spawner extends Actor {
         this.startTime = 0.0;
     }
 
-    render = () => {
+    render = (dt) => {
         this.ctx.fillStyle = "red";
         this.ctx.fillRect(this.x - 49, this.y - 49, 49, 49);
 
@@ -134,7 +134,7 @@ class EndPoint extends Actor {
         this.y = (y + 1) * 50;
     }
 
-    render = () => {
+    render = (dt) => {
         this.ctx.fillStyle = "green";
         this.ctx.fillRect(this.x - 49, this.y - 49, 49, 49);
 
@@ -154,7 +154,7 @@ class Block extends Actor {
         this.y = (y + 1) * 50;
     }
 
-    render = () => {
+    render = (dt) => {
         // this.ctx.fillStyle = "white";
         // this.ctx.fillRect(this.x - 49, this.y - 49, 49, 49);
 
@@ -172,7 +172,7 @@ class Node extends Actor {
         super(bounds);
     }
 
-    render = () => {
+    render = (dt) => {
         this.ctx.fillStyle = "blue";
         this.ctx.fillRect(this.bounds.x, this.bounds.y, this.bounds.width, this.bounds.height);
     }
@@ -185,7 +185,7 @@ class PathLine extends Actor {
         super(bounds);
     }
 
-    render = () => {
+    render = (dt) => {
         this.ctx.fillStyle = "red";
         this.ctx.fillRect(this.bounds.x, this.bounds.y, this.bounds.width, this.bounds.height);
     }
@@ -468,33 +468,112 @@ class Graph {
 
 //**************************************************************
 
+class Monster extends Actor {
+    constructor(bounds, path) {
+        super(bounds);
+        this.speed = 5;
+        this.route = this.edgePath(path);
+        this.vertex = 0;
+
+        this.px = this.bounds.x;
+        this.px = this.bounds.y;
+    }
+
+    render = (dt) => {
+        //clearframe
+        this.ctx.fillStyle = "black";
+        this.ctx.fillRect(this.px, this.py, this.bounds.width, this.bounds.height);
+
+        this.px = Math.round(this.bounds.x);
+        this.py = Math.round(this.bounds.y);
+
+        //drawframe
+        this.ctx.fillStyle = "pink";
+        this.ctx.fillRect(this.px, this.py, this.bounds.width, this.bounds.height);
+    }
+
+    update = (dt) => {
+        //update position
+        if (this.bounds.y < this.route[this.vertex][0] * 50) {
+            this.bounds.y += this.speed;
+        }
+        else if (this.bounds.x < this.route[this.vertex][1] * 50) {
+            this.bounds.x += this.speed;
+        }
+        else if (this.bounds.y == this.route[this.vertex][0] * 50 || this.bounds.x == this.route[this.vertex][1] * 50) {
+            if (this.vertex < this.route.length - 1) {
+                this.vertex += 1;
+            }
+            else {
+                this.destroy();
+            }
+        }
+    }
+
+    destroy = (dt) => {
+        this.stage.removeActor(this);
+    }
+
+    edgePath(path) {
+        // [y, x] coordinates
+        let horizontal = false;
+        let vertical = false;
+        let edgePath = [];
+
+        if (path[0][0] == path[1][0])
+            vertical = true;
+        else if (path[0][1] == path[1][1])
+            horizontal = true;
+
+        for (let i = 0; i < path.length - 1; i++) {
+            if (vertical) {
+                if (path[i][0] != path[i + 1][0]) {
+                    edgePath.push(path[i]);
+                    vertical = false;
+                    horizontal = true;
+                }
+            }
+            else if (horizontal) {
+                if (path[i][1] != path[i + 1][1]) {
+                    edgePath.push(path[i]);
+                    vertical = true;
+                    horizontal = false;
+                }
+            }
+        }
+        edgePath.push(path[path.length - 1]);
+        return edgePath;
+    }
+}
+
+//**************************************************************
+
 let stage = new Stage(document.querySelector('#main'));
 
 for (let i = 0; i <= 600; i += 50) {
     for (let j = 0; j <= 600; j += 50) {
-        stage.addActor(new Node({ x: i - 25, y: j - 25, width: 2, height: 2 }));
+        stage.addActor(new Node({ x: i - 25, y: j - 25, width: 2, height: 2 }), 0);
     }
-    stage.addActor(new Line({ x: i, y: 0, width: 1, height: 600 }));
-    stage.addActor(new Line({ x: 0, y: i, width: 600, height: 1 }));
+    stage.addActor(new Line({ x: i, y: 0, width: 1, height: 600 }), 1);
+    stage.addActor(new Line({ x: 0, y: i, width: 600, height: 1 }), 1);
 }
 
-stage.addActor(new Tower(0, 0, 0, 0, "nearest", 3, 10, 10));
-stage.addActor(new Tower(0, 0, 0, 0, "nearest", 3, 0, 0));
-stage.addActor(new Tower(0, 0, 0, 0, "nearest", 3, 5, 8));
-stage.addActor(new Tower(0, 0, 0, 0, "nearest", 3, 8, 4));
-stage.addActor(new Spawner(1, 1));
-stage.addActor(new EndPoint(11, 11));
-stage.addActor(new Block(0, 6));
-stage.addActor(new Block(1, 6));
-stage.addActor(new Block(2, 6));
-stage.addActor(new Block(3, 6));
-stage.addActor(new Block(4, 6));
-stage.addActor(new Block(5, 6));
-stage.addActor(new Block(7, 6));
-stage.addActor(new Block(8, 6));
-stage.addActor(new Block(9, 6));
-stage.addActor(new Block(10, 6));
-stage.addActor(new Block(11, 6));
+stage.addActor(new Tower(0, 0, 0, 0, "nearest", 3, 10, 10), 10);
+stage.addActor(new Tower(0, 0, 0, 0, "nearest", 3, 0, 0), 10);
+stage.addActor(new Tower(0, 0, 0, 0, "nearest", 3, 5, 8), 10);
+stage.addActor(new Tower(0, 0, 0, 0, "nearest", 3, 8, 4), 10);
+stage.addActor(new Tower(0, 0, 0, 0, "nearest", 3, 9, 7), 10);
+stage.addActor(new Block(0, 6), 5);
+stage.addActor(new Block(1, 6), 5);
+stage.addActor(new Block(2, 6), 5);
+stage.addActor(new Block(3, 6), 5);
+stage.addActor(new Block(4, 6), 5);
+stage.addActor(new Block(5, 6), 5);
+stage.addActor(new Block(7, 6), 5);
+stage.addActor(new Block(8, 6), 5);
+stage.addActor(new Block(9, 6), 5);
+stage.addActor(new Block(10, 6), 5);
+stage.addActor(new Block(11, 6), 5);
 
 let p = new Pather()
 let matrix = [
@@ -505,12 +584,12 @@ let matrix = [
     [0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0], //4
     [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], //5
     [1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1], //6
-    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], //7
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0], //7
     [0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0], //8
     [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], //9
     [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0], //10
     [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2], //11
-  //[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, ), _]
+    //[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, ), _]
 ];
 let start = [1, 1];
 p.initializeGraph(matrix);
@@ -519,11 +598,15 @@ console.log(path);
 
 for (let i = 0; i < path.length - 1; i++) {
     if (path[i][0] == path[i + 1][0]) {
-        stage.addActor(new PathLine({ x: (path[i][1] + 1) * 50 - 25, y: (path[i][0] + 1) * 50 - 25, width: 50, height: 3 }));
+        stage.addActor(new PathLine({ x: (path[i][1] + 1) * 50 - 25, y: (path[i][0] + 1) * 50 - 25, width: 50, height: 3 }), 7);
     }
     else if (path[i][1] == path[i + 1][1]) {
-        stage.addActor(new PathLine({ x: (path[i][1] + 1) * 50 - 25, y: (path[i][0] + 1) * 50 - 25, width: 3, height: 50 }));
+        stage.addActor(new PathLine({ x: (path[i][1] + 1) * 50 - 25, y: (path[i][0] + 1) * 50 - 25, width: 3, height: 50 }), 7);
     }
 }
+
+stage.addActor(new EndPoint(11, 11), 8);
+stage.addActor(new Spawner(1, 1), 8);
+stage.addActor(new Monster({ x: 75, y: 75, width: 25, height: 25 }, path), 9);
 
 stage.start();
