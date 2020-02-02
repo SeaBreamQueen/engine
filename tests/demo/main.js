@@ -2,6 +2,32 @@ import Stage from '../../src/lib/stage';
 import Actor from '../../src/lib/actor';
 import InputHandler from '../../src/lib/inputHandler';
 
+class World extends Stage{
+    constructor(elem){
+        super(elem)
+        //this.activeEnemies = []
+    }
+
+
+    getActiveEnemies(){
+        let enemyLayerID = 9
+        let activeEnemies = []
+        let enemyLayer = this.children[enemyLayerID]
+        if (enemyLayer == null){
+            //console.log("no enemies on map")
+            return activeEnemies
+        }
+        //console.log("enemies on map")
+        for (let i = 0; i < enemyLayer.length; i++){
+            let a = enemyLayer[i]
+            if (a instanceof Monster){
+                activeEnemies.push(a)
+            }
+        }
+        return activeEnemies
+    }
+}
+
 class Line extends Actor {
     constructor(bounds) {
         super(bounds);
@@ -16,47 +42,147 @@ class Line extends Actor {
 //**************************************************************
 
 class Tower extends Actor {
-    constructor(hp, atkspeed, atk, def, targetingMode, range, x, y) {
+    constructor(atkspeed, atk, targetingMode, range, x, y) {
         super({});
-        this.hp = hp;
         this.atkspeed = atkspeed;
         this.atk = atk;
-        this.def = def;
         this.targetingMode = targetingMode;
         this.range = range;
-        this.positionX = (x + 1) * 50 - 25;
-        this.positionY = (y + 1) * 50 - 25;
+        this.positionX = x
+        this.positionY = y
+        this.realX = (x + 1) * 50 - 25;
+        this.realY = (y + 1) * 50 - 25;
         this.aimAngle = 0.0
+        this.target = null
+        this.shotTimer = 0
+    }
+
+    update = (dt) => {
+        if (this.target == null || this.target.hasReachedGoal() || this.target.isDead() || !this.targetInRange()){
+            //console.log("seeking target")
+            this.findTarget()
+        }
+        if(this.target == null){
+            
+        }
+        else{
+            this.turnToTarget(this.target)
+            this.shoot(dt)
+        }
+    }
+
+    targetInRange(){
+        let distance = Math.sqrt(Math.pow(this.positionX - this.target.positionX, 2) + Math.pow(this.positionY - this.target.positionY, 2))
+        return distance <= this.range
+    }
+
+    shoot(time){
+        this.shotTimer += time
+        if (this.shotTimer >= this.atkspeed){
+            //console.log("shooting!")
+            this.shotTimer -= this.atkspeed
+            this.fireBulletNoProjectile()
+        }
+    }
+
+    fireBulletNoProjectile(){
+        this.target.takeDamage(this.atk)
     }
 
     render = (dt) => {
+
         this.ctx.fillStyle = "white";
         this.ctx.font = "20px Arial";
         this.ctx.textAlign = "center";
-        this.ctx.fillText("T", this.positionX, this.positionY + 10);
+        this.ctx.fillText("T", this.realX, this.realY + 10);
 
         this.ctx.strokeStyle = "white";
         this.ctx.beginPath();
-        this.ctx.arc(this.positionX, this.positionY, this.range * 50, 0, 2 * Math.PI);
+        this.ctx.arc(this.realX, this.realY, this.range * 50, 0, 2 * Math.PI);
         this.ctx.stroke();
     }
 
-    turnToTarget(target) {
-        if (target == null || target.isDead()) {
-            return
-        }
+    turnToTarget(target){
         let targetPosition = target.getPosition()
+        let currentPosition = [this.positionY, this.positionX]
+        //pointing straight up or straight down case to avoid NaN with Math.atan() function
+        if (currentPosition[1] - targetPosition[1] == 0)
+        {
+            if (currentPosition[0] - targetPosition[0] >= 0){
+                this.aimAngle = Math.PI*0.5
+            }
+            else{
+                this.aimAngle = Math.PI*1.5
+            }
+        }
+        //general case
+        else{
+            this.aimAngle = Math.atan((currentPosition[0] - targetPosition[0])/(currentPosition[1] - targetPosition[1]))
+        }
     }
 
-
-    //Function to subtract health.
-    takeDamage(damage) {
-        this.hp -= damage;
+    findTarget(){
+        let inRange = this.findInRadius(stage.getActiveEnemies())
+        this.target = this.prioritizeTarget(inRange)
     }
-
-    //Function to add health.
-    healDamage(heal) {
-        this.hp += heal;
+    findInRadius(entities) {
+        let h = this.positionX;
+        let k = this.positionY;
+        let array = [];
+    
+        entities.forEach(element => {
+            let x = element.positionX;
+            let y = element.positionY;
+            let distance = Math.sqrt(((x - h) ** 2) + ((y - k) ** 2))
+            if (distance <= this.range) {
+                array.push(element);
+            };
+        });
+    
+        return array;
+    }
+    prioritizeTarget(entities) {
+        let target = entities[0];
+    
+        switch (this.targetingMode) {
+            //Target monster with the lowest HP.
+            case "lowestHP":
+                entities.forEach(element => {
+                    if (element.hp < target.hp) {
+                        target = element;
+                    }
+                });
+                break;
+            
+            //Target monster with the highest HP.
+            case "highestHP":
+                entities.forEach(element => {
+                    if (element.hp > target.hp) {
+                        target = element;
+                    }
+                });
+                break;
+            
+            //Target monster nearest to the end point.
+            case "nearest":
+                entities.forEach(element => {
+                    if (element.distance < target.distance) {
+                        target = element;
+                    }
+                });
+                break;
+            
+            //Target monster furthest to the end point.
+            case "furthest":
+                entities.forEach(element => {
+                    if (element.distance > target.distance) {
+                        target = element;
+                    }
+                });
+                break;
+        }
+    
+        return target;
     }
 
     //Function to change targeting mode.
@@ -69,27 +195,100 @@ class Tower extends Actor {
         this.range = range;
     }
 }
+//**************************************************************
+function moveOverPath(mob, time){
+    if (time == 0 || mob.hasReachedGoal()){
+        return
+    }
+    let speed = mob.getSpeed()
+    let currentPosition = mob.getPosition()
+    let distanceToTravel = speed * time
+    let path = mob.getPath()
+    let targetPosition = path[mob.getStep()+1]
+    let maximumStepDistance = Math.sqrt(Math.pow(currentPosition[0] - targetPosition[0], 2) + Math.pow(currentPosition[1] - targetPosition[1], 2))
+    //snap to next position, recursive call
+    if (maximumStepDistance <= distanceToTravel){
+        let newDistanceToTravel = distanceToTravel - maximumStepDistance
+        let newTime = newDistanceToTravel / speed
+        //console.log("time = " + newTime)
+        mob.setDistance(mob.getDistance() - maximumStepDistance)
+        mob.setStep(mob.getStep() + 1)
+        mob.updatePosition(targetPosition)
+        moveOverPath(mob, newTime)
+        return
+    }
+    let xFactor = 0
+    let yFactor = 0
+    //all x movement
+    if (currentPosition[0] - targetPosition[0] == 0){
+        xFactor = distanceToTravel
+        if (currentPosition[1] - targetPosition[1] > 0){
+            xFactor = -xFactor
+        }
+    }
+    //all y movement
+    else if (currentPosition[1] - targetPosition[1] == 0){
+        yFactor = distanceToTravel
+        if (currentPosition[0] - targetPosition[0] > 0){
+            yFactor = -yFactor
+        }
+    }
+    //mixed movement
+    else{
+        let angle = Math.atan((currentPosition[0] - targetPosition[0])/(currentPosition[1] - targetPosition[1]))
+        xFactor = distanceToTravel * Math.cos(angle)
+        yFactor = distanceToTravel * Math.sin(angle)
+    }
+    
+    let newPosition = [currentPosition[0] + yFactor, currentPosition[1] + xFactor]
+    mob.updatePosition(newPosition)
+    mob.setDistance(mob.getDistance() - distanceToTravel)
+    //mob.setStep(mob.getStep()+1)
+}
 
 //**************************************************************
 
 class Spawner extends Actor {
     constructor(x, y) {
         super({});
-        this.x = (x + 1) * 50;
-        this.y = (y + 1) * 50;
+        this.x = x
+        this.y = y
+        this.realx = (x + 1) * 50;
+        this.realy = (y + 1) * 50;
         this.path = null;
         this.mobs = null;
         this.startTime = 0.0;
+        this.distance = 0
     }
 
+    update = (dt) => {
+        this.spawnMobs(dt)
+    }
+
+    setPath(path){
+        this.path = path
+        this.distance = this.sumPath(path)
+    }
+
+    sumPath(path){
+        let total = 0
+        for(let i = 1; i < path.length; i++){
+           total += Math.sqrt(Math.pow(path[i-1][0] - path[i][0], 2) + Math.pow(path[i-1][1] - path[i][1], 2))
+       }
+        return total
+    }
+
+    /*
+     *uses realx and realy not x, y, which are virtual representations, not graphical
+     */
     render = (dt) => {
         this.ctx.fillStyle = "red";
-        this.ctx.fillRect(this.x - 49, this.y - 49, 49, 49);
+        this.ctx.fillRect(this.realx - 49, this.realy - 49, 49, 49);
 
         this.ctx.fillStyle = "white";
         this.ctx.font = "20px Arial";
         this.ctx.textAlign = "center";
-        this.ctx.fillText("S", this.x - 25, this.y - 15);
+        this.ctx.fillText("S", this.realx - 25, this.realy - 15);
     }
 
     /*
@@ -105,11 +304,9 @@ class Spawner extends Actor {
     spawnMobs(deltaTime) {
         this.startTime += deltaTime
         while (this.mobs.length > 0 && this.mobs[0][0] <= this.startTime) {
-            let toSpawn = this.mobs[0]
-            //console.log(toSpawn)
+            let toSpawn = this.mobs[0][1]
             this.mobs.shift()
-            //console.log(this.mobs)
-            //this.spawn(toSpawn)
+            this.spawn(toSpawn)
         }
     }
 
@@ -117,7 +314,11 @@ class Spawner extends Actor {
      * adds mob to world, sets coordinates to the spawner's, copies the path to the mob
      */
     spawn(mob) {
-
+        mob.updatePosition([this.y, this.x])
+        mob.setDistance(this.distance)
+        mob.setPath(this.path)
+        stage.addActor(mob, 9)
+        console.log(mob)
     }
 
     mobsRemaining() {
@@ -130,8 +331,8 @@ class Spawner extends Actor {
 class EndPoint extends Actor {
     constructor(x, y) {
         super({});
-        this.x = (x + 1) * 50;
-        this.y = (y + 1) * 50;
+        this.x = (x + 1) * 60;
+        this.y = (y + 1) * 60;
     }
 
     render = (dt) => {
@@ -469,14 +670,21 @@ class Graph {
 //**************************************************************
 
 class Monster extends Actor {
-    constructor(bounds, path) {
-        super(bounds);
-        this.speed = 5;
-        this.route = this.edgePath(path);
+    constructor(hp, speed, def) {
+        super({width: 50, height: 50 });
+        //this.route = this.edgePath(path);
         this.vertex = 0;
-
-        this.px = this.bounds.x;
-        this.px = this.bounds.y;
+        this.hp = hp;
+        this.maxHp = hp
+        this.speed = speed;
+        this.def = def;
+        this.distance = 0
+        this.positionX = 0;
+        this.positionY = 0;
+        this.path = []
+        this.step = 0
+        this.reachedGoal = false
+        this.dead = false
     }
 
     render = (dt) => {
@@ -488,30 +696,108 @@ class Monster extends Actor {
         this.py = Math.round(this.bounds.y);
 
         //drawframe
-        this.ctx.fillStyle = "pink";
+        let ratio = (this.hp / this.maxHp) * 255
+        let hexComponent = Math.floor(ratio).toString(16)
+        //console.log(ratio + " " +hexComponent)
+        let colorString = "#00" + hexComponent + "00"
+        this.ctx.fillStyle = colorString;
         this.ctx.fillRect(this.px, this.py, this.bounds.width, this.bounds.height);
     }
 
     update = (dt) => {
-        //update position
-        if (this.bounds.y < this.route[this.vertex][0] * 50) {
-            this.bounds.y += this.speed;
+        //console.log("acting! " + this.getPosition() + " hp: " + this.getHp())
+        if (this.isDead()){
+            console.log("Dead! " + this.getPosition() + " hp: " + this.getHp())
+            this.destroy(dt)
         }
-        else if (this.bounds.x < this.route[this.vertex][1] * 50) {
-            this.bounds.x += this.speed;
+        moveOverPath(this, dt)
+        this.distance -= this.speed*dt
+        this.updateRealPosition()
+        if (this.hasReachedGoal()){
+            console.log("Reached goal! " + this.getPosition())
+            this.destroy(dt)
         }
-        else if (this.bounds.y == this.route[this.vertex][0] * 50 || this.bounds.x == this.route[this.vertex][1] * 50) {
-            if (this.vertex < this.route.length - 1) {
-                this.vertex += 1;
-            }
-            else {
-                this.destroy();
-            }
-        }
+
+    }
+
+    /*
+     * update position for engine. pass x y values to function that translates virtual to visual position
+     */
+    updateRealPosition(){
+        this.bounds.x = this.positionX * 50
+        this.bounds.y = this.positionY * 50
     }
 
     destroy = (dt) => {
-        this.stage.removeActor(this);
+        //Clear boundingbox
+        this.ctx.clearRect(this.x, this.y, this.width, this.height);
+        
+        //Remove actor from stage
+        this.stage.removeActor(this)
+    }
+
+    hasReachedGoal(){
+        this.reachedGoal = this.step + 1 >= this.path.length
+        return this.reachedGoal
+    }
+
+    setPath(path){
+        this.path = path
+        this.step = 0
+    }
+
+    setStep(step){
+        this.step = step
+    }
+
+    //Function to subtract health.
+    takeDamage(damage) {
+        this.hp -= damage;
+    }
+
+    //Function to add health.
+    healDamage(heal) {
+        this.hp += heal;
+    }
+
+    //position given in [y, x] format
+    updatePosition(position) {
+        this.positionX = position[1];
+        this.positionY = position[0];
+        this.updateRealPosition()
+    }
+
+    //Function to change distance.
+    setDistance(distance) {
+        this.distance = distance;
+    }
+
+    getHp(){
+        return this.hp
+    }
+    getSpeed(){
+        return this.speed
+    }
+    getDef(){
+        return this.def
+    }
+    getDistance(){
+        return this.distance
+    }
+    //position given in [y, x] format
+    getPosition(){
+        return [this.positionY, this.positionX]
+    }
+    getPath(){
+        return this.path
+    }
+    getStep(){
+        return this.step
+    }
+    isDead(){
+        this.dead = this.hp <= 0
+        //console.log(this.hp <= 0)
+        return this.dead
     }
 
     edgePath(path) {
@@ -544,11 +830,12 @@ class Monster extends Actor {
         edgePath.push(path[path.length - 1]);
         return edgePath;
     }
+
 }
 
 //**************************************************************
 
-let stage = new Stage(document.querySelector('#main'));
+let stage = new World(document.querySelector('#main'));
 
 for (let i = 0; i <= 600; i += 50) {
     for (let j = 0; j <= 600; j += 50) {
@@ -558,44 +845,71 @@ for (let i = 0; i <= 600; i += 50) {
     stage.addActor(new Line({ x: 0, y: i, width: 600, height: 1 }), 1);
 }
 
-stage.addActor(new Tower(0, 0, 0, 0, "nearest", 3, 10, 10), 10);
-stage.addActor(new Tower(0, 0, 0, 0, "nearest", 3, 0, 0), 10);
-stage.addActor(new Tower(0, 0, 0, 0, "nearest", 3, 5, 8), 10);
-stage.addActor(new Tower(0, 0, 0, 0, "nearest", 3, 8, 4), 10);
-stage.addActor(new Tower(0, 0, 0, 0, "nearest", 3, 9, 7), 10);
-stage.addActor(new Block(0, 6), 5);
-stage.addActor(new Block(1, 6), 5);
-stage.addActor(new Block(2, 6), 5);
-stage.addActor(new Block(3, 6), 5);
-stage.addActor(new Block(4, 6), 5);
-stage.addActor(new Block(5, 6), 5);
-stage.addActor(new Block(7, 6), 5);
-stage.addActor(new Block(8, 6), 5);
-stage.addActor(new Block(9, 6), 5);
-stage.addActor(new Block(10, 6), 5);
-stage.addActor(new Block(11, 6), 5);
+
+stage.addActor(new Tower(30, 1, "nearest", 3, 2, 3), 10);
+stage.addActor(new Tower(10, .3, "nearest", 3, 7, 1), 10);
+stage.addActor(new Tower(45, 4, "nearest", 2, 3, 8), 10);
+stage.addActor(new Tower(60, 8, "nearest", 6, 8, 7), 10);
 
 let p = new Pather()
 let matrix = [
-    [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], //0
-    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], //1
-    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], //2
-    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], //3
-    [0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0], //4
-    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], //5
-    [1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1], //6
-    [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0], //7
-    [0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0], //8
-    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], //9
-    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0], //10
-    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2], //11
-    //[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, ), _]
+    [1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0], //0
+    [0, 0, 1, 0, 0, 0, 1, 1, 1, 1, 1, 0], //1
+    [0, 0, 1, 0, 1, 1, 0, 1, 0, 0, 0, 0], //2
+    [0, 0, 1, 0, 0, 1, 0, 1, 0, 1, 0, 0], //3
+    [0, 0, 1, 1, 0, 1, 0, 1, 0, 1, 0, 0], //4
+    [0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0, 0], //5
+    [1, 1, 0, 1, 1, 1, 0, 1, 1, 1, 1, 1], //6
+    [0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0, 0], //7
+    [0, 1, 1, 0, 0, 1, 1, 1, 0, 0, 0, 0], //8
+    [0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 0], //9
+    [1, 1, 0, 1, 0, 1, 0, 1, 0, 1, 1, 0], //10
+    [0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 2], //11
+  //[0, 1, 2, 3, 4, 5, 6, 7, 8, 9,10,11]
 ];
+
+for(let i = 0; i < matrix.length; i++){
+    for(let j = 0; j < matrix[0].length; j++){
+        if(matrix[i][j] == 1){
+            stage.addActor(new Block(j, i), 5)
+        }
+    }
+}
 let start = [1, 1];
 p.initializeGraph(matrix);
-let path = p.findShortestPathToEnds(start[0], start[1]);
-console.log(path);
-
+let path1 = p.findShortestPathToEnds(start[0], start[1]);
+let path2 = p.findShortestPathToEnds(6, 2)
+let path3 = p.findShortestPathToEnds(8, 5)
+let spawnList1 = [
+    [30, new Monster(10, .1, 0)],
+    [100, new Monster(5, .02, 0)],
+    [150, new Monster(20, .07, 0)],
+    [250, new Monster(4, .8, 0)]
+]
+let spawnList2 = [
+    [30, new Monster(10, .1, 0)],
+    [50, new Monster(5, .02, 0)],
+    [70, new Monster(10, .02, 0)],
+    [120, new Monster(10, .4, 0)]
+]
+let spawnList3 = [
+    [30, new Monster(10, .1, 0)],
+    [90, new Monster(5, .02, 0)],
+    [130, new Monster(10, .02, 0)],
+    [200, new Monster(10, .4, 0)],
+    [230, new Monster(100, .01, 0)]
+]
+let spawner1 = new Spawner(1, 1)
+let spawner2 = new Spawner(6, 2)
+let spawner3 = new Spawner(8, 5)
+spawner1.setMobs(spawnList1)
+spawner2.setMobs(spawnList2)
+spawner3.setMobs(spawnList3)
+spawner1.setPath(path1)
+spawner2.setPath(path2)
+spawner3.setPath(path3)
+//console.log(path);
+/*
 for (let i = 0; i < path.length - 1; i++) {
     if (path[i][0] == path[i + 1][0]) {
         stage.addActor(new PathLine({ x: (path[i][1] + 1) * 50 - 25, y: (path[i][0] + 1) * 50 - 25, width: 50, height: 3 }), 7);
@@ -604,9 +918,11 @@ for (let i = 0; i < path.length - 1; i++) {
         stage.addActor(new PathLine({ x: (path[i][1] + 1) * 50 - 25, y: (path[i][0] + 1) * 50 - 25, width: 3, height: 50 }), 7);
     }
 }
+*/
 
 stage.addActor(new EndPoint(11, 11), 8);
-stage.addActor(new Spawner(1, 1), 8);
-stage.addActor(new Monster({ x: 75, y: 75, width: 25, height: 25 }, path), 9);
+stage.addActor(spawner1, 8);
+stage.addActor(spawner2, 8);
+stage.addActor(spawner3, 8);
 
 stage.start();
