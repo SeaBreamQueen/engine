@@ -33,9 +33,9 @@ class World extends Stage{
         let waves = [
             [//wave1
                 //spawner1
-                    this.lineSpawn(30, 10, 3, .3, 0, 10),
+                    this.lineSpawn(30, 10, 3, .07, 0, 10),
                 //spawner2
-                    this.lineSpawn(10, 4, 2, .2, 0, 20),
+                    this.lineSpawn(10, 4, 1, .04, 0, 20),
                 //spawner3
                     this.lineSpawn(50, 20, 2, .07, 0, 5)
             ],
@@ -81,7 +81,7 @@ class World extends Stage{
                 }
             }
         }
-        this.addActor(new Background({x: 300, y: 300, width: 400, height: 400}), 0)
+        this.addActor(new Background({x: 0, y: 0, width: 600, height: 600}), -1)
         this.spawners =[
             new Spawner(1, 1),
             new Spawner(6, 2),
