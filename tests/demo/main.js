@@ -5,7 +5,18 @@ import InputHandler from '../../src/lib/inputHandler';
 class World extends Stage{
     constructor(elem){
         super(elem)
+        this.player = new Player(100, 200)
         //this.activeEnemies = []
+    }
+
+    enemyReachedGoal(){
+        this.player.damage(1)
+        console.log("player damage! current health: " + this.player.getHp())
+    }
+
+    enemyKilled(){
+        this.player.gainMoney(1)
+        console.log("enemy killed! current money: " + this.player.getMoney())
     }
 
 
@@ -36,6 +47,36 @@ class Line extends Actor {
     render = () => {
         this.ctx.fillStyle = "white";
         this.ctx.fillRect(this.bounds.x, this.bounds.y, this.bounds.width, this.bounds.height);
+    }
+}
+
+//**************************************************************
+
+export default class Player {
+    constructor(hp, currency) {
+        this.currency = currency;
+        this.hp = hp
+    }
+
+    //Function to add money.
+    gainMoney(money) {
+        this.currency += money;
+    }
+
+    //Function to subtract money.
+    spendMoney(money) {
+        this.currency -= money;
+    }
+
+    getMoney(){
+        return this.currency
+    }
+    getHp(){
+        return this.hp
+    }
+
+    damage(damage){
+        this.hp -= damage
     }
 }
 
@@ -318,7 +359,7 @@ class Spawner extends Actor {
         mob.setDistance(this.distance)
         mob.setPath(this.path)
         stage.addActor(mob, 9)
-        console.log(mob)
+        //console.log(mob)
     }
 
     mobsRemaining() {
@@ -707,14 +748,16 @@ class Monster extends Actor {
     update = (dt) => {
         //console.log("acting! " + this.getPosition() + " hp: " + this.getHp())
         if (this.isDead()){
-            console.log("Dead! " + this.getPosition() + " hp: " + this.getHp())
+            //console.log("Dead! " + this.getPosition() + " hp: " + this.getHp())
+            stage.enemyKilled()
             this.destroy(dt)
         }
         moveOverPath(this, dt)
         this.distance -= this.speed*dt
         this.updateRealPosition()
         if (this.hasReachedGoal()){
-            console.log("Reached goal! " + this.getPosition())
+            stage.enemyReachedGoal()
+            //console.log("Reached goal! " + this.getPosition())
             this.destroy(dt)
         }
 
@@ -890,14 +933,15 @@ let spawnList2 = [
     [30, new Monster(10, .1, 0)],
     [50, new Monster(5, .02, 0)],
     [70, new Monster(10, .02, 0)],
-    [120, new Monster(10, .4, 0)]
+    [120, new Monster(10, .4, 0)],
+    [300, new Monster(300, .06, 0)]
 ]
 let spawnList3 = [
     [30, new Monster(10, .1, 0)],
     [90, new Monster(5, .02, 0)],
     [130, new Monster(10, .02, 0)],
     [200, new Monster(10, .4, 0)],
-    [230, new Monster(100, .01, 0)]
+    [230, new Monster(50, .01, 0)]
 ]
 let spawner1 = new Spawner(1, 1)
 let spawner2 = new Spawner(6, 2)
