@@ -32,25 +32,12 @@ class World extends Stage{
         ];
         let waves = [
             [//wave1
-                [//spawner1
-                    [30, new Monster(10, .1, 0)],
-                    [100, new Monster(5, .02, 0)],
-                    [150, new Monster(20, .07, 0)],
-                    [250, new Monster(4, .8, 0)]
-                ],
-                [//spawner2
-                    [30, new Monster(10, .1, 0)],
-                    [50, new Monster(5, .02, 0)],
-                    [70, new Monster(10, .02, 0)],
-                    [120, new Monster(10, .4, 0)]
-                ],
-                [//spawner3
-                    [30, new Monster(10, .1, 0)],
-                    [90, new Monster(5, .02, 0)],
-                    [130, new Monster(10, .02, 0)],
-                    [200, new Monster(10, .4, 0)],
-                    [230, new Monster(20, .01, 0)]
-                ]
+                //spawner1
+                    this.lineSpawn(30, 10, 3, .3, 0, 10),
+                //spawner2
+                    this.lineSpawn(10, 4, 2, .2, 0, 20),
+                //spawner3
+                    this.lineSpawn(50, 20, 2, .07, 0, 5)
             ],
             [//wave2
                 [//spawner1
@@ -75,6 +62,7 @@ class World extends Stage{
                 ]
             ]
         ]
+        console.log(waves[0][0])
         let waveTimer = new WaveTimer()
 
         
@@ -120,8 +108,12 @@ class World extends Stage{
 
     }
 
-    newWave(){
-
+    lineSpawn(startTime, gapTime, hp, speed, def, number){
+        let list = []
+        for(let i = 0; i < number; i++){
+            list.push([startTime + gapTime*i,new Monster(hp, speed, def)])
+        }
+        return list
     }
 
     enemyReachedGoal(){
