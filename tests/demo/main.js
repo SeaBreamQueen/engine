@@ -9,6 +9,121 @@ class World extends Stage{
         //this.activeEnemies = []
     }
 
+    /*
+     * 
+     * create map
+     * place static objects (nodes, spawners, endpoint, towers, walls)
+     */
+    createDemoWorld(){
+        let matrix = [
+            [1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0], //0
+            [0, 0, 1, 0, 0, 0, 1, 1, 1, 1, 1, 0], //1
+            [0, 0, 1, 0, 1, 1, 0, 1, 0, 0, 0, 0], //2
+            [0, 0, 1, 0, 0, 1, 0, 1, 0, 1, 0, 0], //3
+            [0, 0, 1, 1, 0, 1, 0, 1, 0, 1, 0, 0], //4
+            [0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0, 0], //5
+            [1, 1, 0, 1, 1, 1, 0, 1, 1, 1, 1, 1], //6
+            [0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0, 0], //7
+            [0, 1, 1, 0, 0, 1, 1, 1, 0, 0, 0, 0], //8
+            [0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 0], //9
+            [1, 1, 0, 1, 0, 1, 0, 1, 0, 1, 1, 0], //10
+            [0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 2], //11
+          //[0, 1, 2, 3, 4, 5, 6, 7, 8, 9,10,11]
+        ];
+        let waves = [
+            [//wave1
+                [//spawner1
+                    [30, new Monster(10, .1, 0)],
+                    [100, new Monster(5, .02, 0)],
+                    [150, new Monster(20, .07, 0)],
+                    [250, new Monster(4, .8, 0)]
+                ],
+                [//spawner2
+                    [30, new Monster(10, .1, 0)],
+                    [50, new Monster(5, .02, 0)],
+                    [70, new Monster(10, .02, 0)],
+                    [120, new Monster(10, .4, 0)]
+                ],
+                [//spawner3
+                    [30, new Monster(10, .1, 0)],
+                    [90, new Monster(5, .02, 0)],
+                    [130, new Monster(10, .02, 0)],
+                    [200, new Monster(10, .4, 0)],
+                    [230, new Monster(20, .01, 0)]
+                ]
+            ],
+            [//wave2
+                [//spawner1
+                    [30, new Monster(10, .1, 0)],
+                    [100, new Monster(5, .02, 0)],
+                    [150, new Monster(20, .07, 0)],
+                    [250, new Monster(4, .8, 0)]
+                ],
+                [//spawner2
+                    [30, new Monster(10, .1, 0)],
+                    [50, new Monster(5, .02, 0)],
+                    [70, new Monster(10, .02, 0)],
+                    [120, new Monster(10, .4, 0)],
+                    [300, new Monster(300, .06, 0)]
+                ],
+                [//spawner3
+                    [30, new Monster(10, .1, 0)],
+                    [90, new Monster(5, .02, 0)],
+                    [130, new Monster(10, .02, 0)],
+                    [200, new Monster(10, .4, 0)],
+                    [230, new Monster(50, .01, 0)]
+                ]
+            ]
+        ]
+        let waveTimer = new WaveTimer()
+
+        
+
+        for (let i = 0; i <= 600; i += 50) {
+            for (let j = 0; j <= 600; j += 50) {
+                this.addActor(new Node({ x: i - 25, y: j - 25, width: 2, height: 2 }), 0);
+            }
+            this.addActor(new Line({ x: i, y: 0, width: 1, height: 600 }), 1);
+            this.addActor(new Line({ x: 0, y: i, width: 600, height: 1 }), 1);
+        }
+        for(let i = 0; i < matrix.length; i++){
+            for(let j = 0; j < matrix[0].length; j++){
+                if(matrix[i][j] == 1){
+                    this.addActor(new Block(j, i), 5)
+                }
+            }
+        }
+        this.addActor(new Background({x: 300, y: 300, width: 400, height: 400}), 0)
+        this.spawners =[
+            new Spawner(1, 1),
+            new Spawner(6, 2),
+            new Spawner(8, 5)
+        ]
+        let pather = new Pather()
+        pather.initializeGraph(matrix)
+        for(let i = 0; i < this.spawners.length; i++){
+            this.spawners[i].setPath(pather.findShortestPathToEnds(this.spawners[i].getPosition()[0], this.spawners[i].getPosition()[1]))
+            this.addActor(this.spawners[i], 8);
+        }
+        waveTimer.setSpawners(this.spawners)
+        waveTimer.setWaves(waves)
+
+        this.addActor(waveTimer, 0)
+        
+        stage.addActor(new EndPoint(11, 11), 8);
+        stage.addActor(new Tower(30, 1, "nearest", 3, 2, 3), 10);
+        stage.addActor(new Tower(10, .3, "nearest", 3, 7, 1), 10);
+        stage.addActor(new Tower(45, 4, "nearest", 2, 3, 8), 10);
+        stage.addActor(new Tower(60, 8, "nearest", 6, 8, 7), 10);
+
+
+
+    }
+
+    newWave(){
+
+    }
+
     enemyReachedGoal(){
         this.player.damage(1)
         console.log("player damage! current health: " + this.player.getHp())
@@ -37,6 +152,67 @@ class World extends Stage{
         }
         return activeEnemies
     }
+}
+
+/*
+ * spawn list in format of
+ * 
+ * [ <- every contained list in this bracket is a wave
+ *      [ <- every contained list is a group of enemies for a spawner to take
+ *          [ <- every contained list is a pair of [timing, monster]
+ *              [timing, monster]
+ *          ]
+ *      ]
+ * ]
+ */
+class WaveTimer extends Actor{
+    constructor(){
+        super({})
+        this.spawners = []
+        this.waveStep = 1
+        this.waves = []
+
+    }
+
+    update = (dt) => {
+        //console.log(this.waveCompleted())
+        if (this.waveCompleted()){
+            //console.log("starting wave " + this.waveStep)
+            
+            this.startWave()
+        }
+    }
+
+
+    startWave(){
+        if(this.waveStep > this.waves.length){
+            return
+        }
+        for(let i = 0; i < this.spawners.length; i++){
+            this.spawners[i].setMobs(this.waves[this.waveStep-1][i])
+        }
+        this.waveStep ++
+    }
+
+    setWaves(waves){
+        this.waves = waves
+        this.waveStep = 1
+    }
+
+    setSpawners(spawners){
+        this.spawners = spawners
+    }
+
+    waveCompleted(){
+        for(let i = 0; i < this.spawners.length; i++){
+            if (!this.spawners[i].mobsExhausted()){
+                return false
+            }
+        }
+        return true
+    }
+
+
 }
 
 class Line extends Actor {
@@ -241,6 +417,7 @@ function moveOverPath(mob, time){
     if (time == 0 || mob.hasReachedGoal()){
         return
     }
+    //console.log(mob)
     let speed = mob.getSpeed()
     let currentPosition = mob.getPosition()
     let distanceToTravel = speed * time
@@ -292,18 +469,39 @@ function moveOverPath(mob, time){
 class Spawner extends Actor {
     constructor(x, y) {
         super({});
-        this.x = x
-        this.y = y
+        this.positionX = x
+        this.positionY = y
         this.realx = (x + 1) * 50;
         this.realy = (y + 1) * 50;
-        this.path = null;
-        this.mobs = null;
+        this.path = [];
+        this.mobs = [];
+        this.spawned = [];
         this.startTime = 0.0;
         this.distance = 0
     }
 
+    mobsExhausted(){
+        if (this.mobs.length == 0){
+            for(let i = 0; i < this.spawned.length; i++){
+                if (!(this.spawned[i].isDead() || this.spawned[i].hasReachedGoal())){
+                    return false
+                }
+            }
+            return true
+        }
+        return false
+    }
+
     update = (dt) => {
         this.spawnMobs(dt)
+    }
+
+    getPosition(){
+        return [this.positionX, this.positionY]
+    }
+
+    isEmpty(){
+        return this.mobs.length == 0
     }
 
     setPath(path){
@@ -340,6 +538,7 @@ class Spawner extends Actor {
     setMobs(mobs) {
         this.mobs = mobs
         this.startTime = 0.0
+        this.spawned = []
     }
 
     spawnMobs(deltaTime) {
@@ -355,10 +554,12 @@ class Spawner extends Actor {
      * adds mob to world, sets coordinates to the spawner's, copies the path to the mob
      */
     spawn(mob) {
-        mob.updatePosition([this.y, this.x])
+        mob.updatePosition([this.positionY, this.positionX])
         mob.setDistance(this.distance)
         mob.setPath(this.path)
+        //console.log(mob)
         stage.addActor(mob, 9)
+        this.spawned.push(mob)
         //console.log(mob)
     }
 
@@ -416,6 +617,17 @@ class Node extends Actor {
 
     render = (dt) => {
         this.ctx.fillStyle = "blue";
+        this.ctx.fillRect(this.bounds.x, this.bounds.y, this.bounds.width, this.bounds.height);
+    }
+}
+
+class Background extends Actor {
+    constructor(bounds) {
+        super(bounds);
+    }
+
+    render = (dt) => {
+        this.ctx.fillStyle = "#000000";
         this.ctx.fillRect(this.bounds.x, this.bounds.y, this.bounds.width, this.bounds.height);
     }
 }
@@ -740,7 +952,7 @@ class Monster extends Actor {
         let ratio = (this.hp / this.maxHp) * 255
         let hexComponent = Math.floor(ratio).toString(16)
         //console.log(ratio + " " +hexComponent)
-        let colorString = "#00" + hexComponent + "00"
+        let colorString = "#00" + hexComponent + "30"
         this.ctx.fillStyle = colorString;
         this.ctx.fillRect(this.px, this.py, this.bounds.width, this.bounds.height);
     }
@@ -879,7 +1091,7 @@ class Monster extends Actor {
 //**************************************************************
 
 let stage = new World(document.querySelector('#main'));
-
+/*
 for (let i = 0; i <= 600; i += 50) {
     for (let j = 0; j <= 600; j += 50) {
         stage.addActor(new Node({ x: i - 25, y: j - 25, width: 2, height: 2 }), 0);
@@ -887,6 +1099,7 @@ for (let i = 0; i <= 600; i += 50) {
     stage.addActor(new Line({ x: i, y: 0, width: 1, height: 600 }), 1);
     stage.addActor(new Line({ x: 0, y: i, width: 600, height: 1 }), 1);
 }
+stage.addActor(new Background({x: 300, y: 300, width: 400, height: 400}), 0)
 
 
 stage.addActor(new Tower(30, 1, "nearest", 3, 2, 3), 10);
@@ -952,21 +1165,12 @@ spawner3.setMobs(spawnList3)
 spawner1.setPath(path1)
 spawner2.setPath(path2)
 spawner3.setPath(path3)
-//console.log(path);
-/*
-for (let i = 0; i < path.length - 1; i++) {
-    if (path[i][0] == path[i + 1][0]) {
-        stage.addActor(new PathLine({ x: (path[i][1] + 1) * 50 - 25, y: (path[i][0] + 1) * 50 - 25, width: 50, height: 3 }), 7);
-    }
-    else if (path[i][1] == path[i + 1][1]) {
-        stage.addActor(new PathLine({ x: (path[i][1] + 1) * 50 - 25, y: (path[i][0] + 1) * 50 - 25, width: 3, height: 50 }), 7);
-    }
-}
-*/
+
 
 stage.addActor(new EndPoint(11, 11), 8);
 stage.addActor(spawner1, 8);
 stage.addActor(spawner2, 8);
 stage.addActor(spawner3, 8);
-
+*/
+stage.createDemoWorld()
 stage.start();
