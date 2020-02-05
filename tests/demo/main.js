@@ -169,7 +169,7 @@ class WaveTimer extends Actor{
     update = (dt) => {
         //console.log(this.waveCompleted())
         if (this.waveCompleted()){
-            //console.log("starting wave " + this.waveStep)
+            console.log("starting wave " + this.waveStep)
             
             this.startWave()
         }
